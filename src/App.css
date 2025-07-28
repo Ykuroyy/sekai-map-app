@@ -65,6 +65,10 @@ body {
   position: relative;
   width: 100%;
   margin: 1rem 0;
+  background: radial-gradient(ellipse at center, #1e3c72 0%, #2a5298 25%, #000 70%);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
 }
 
 .spinning-message {

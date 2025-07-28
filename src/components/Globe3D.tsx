@@ -224,106 +224,367 @@ export const Globe3D = ({
     cameraRef.current = camera;
 
     // レンダラーの設定
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
-    renderer.setClearColor(0x000000, 0); // 透明背景
+    renderer.setClearColor(0x000611, 1); // 深い宇宙の色
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
     rendererRef.current = renderer;
     mountRef.current.appendChild(renderer.domElement);
+    
+    // 星空背景の作成
+    const createStarField = () => {
+      const starGeometry = new THREE.BufferGeometry();
+      const starCount = 3000;
+      
+      const positions = new Float32Array(starCount * 3);
+      const colors = new Float32Array(starCount * 3);
+      
+      for (let i = 0; i < starCount; i++) {
+        // ランダムな球面座標で星を配置
+        const radius = 100;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        
+        positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+        positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+        positions[i * 3 + 2] = radius * Math.cos(phi);
+        
+        // 星の色をランダムに設定
+        const starColor = new THREE.Color().setHSL(
+          Math.random() * 0.1 + 0.55, // 青白い色合い
+          Math.random() * 0.3 + 0.1,
+          Math.random() * 0.5 + 0.5
+        );
+        colors[i * 3] = starColor.r;
+        colors[i * 3 + 1] = starColor.g;
+        colors[i * 3 + 2] = starColor.b;
+      }
+      
+      starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      
+      const starMaterial = new THREE.PointsMaterial({
+        size: 2,
+        sizeAttenuation: true,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.8
+      });
+      
+      const stars = new THREE.Points(starGeometry, starMaterial);
+      scene.add(stars);
+      
+      return stars;
+    };
+    
+    const starField = createStarField();
 
-    // 地球の作成
-    const geometry = new THREE.SphereGeometry(1, 64, 32);
+    // 高品質地球儀の作成
+    const createEarthTexture = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 4096;  // 4K解像度
+      canvas.height = 2048;
+      const ctx = canvas.getContext('2d')!;
+      
+      // リアルな海洋グラデーション
+      const oceanGradient = ctx.createRadialGradient(
+        canvas.width/2, canvas.height/2, 0,
+        canvas.width/2, canvas.height/2, canvas.height/2
+      );
+      oceanGradient.addColorStop(0, '#006994');
+      oceanGradient.addColorStop(0.3, '#0077be');
+      oceanGradient.addColorStop(0.6, '#004d6b');
+      oceanGradient.addColorStop(1, '#002a3a');
+      ctx.fillStyle = oceanGradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // 詳細な大陸の描画
+      const drawContinent = (path: [number, number][], color: string, shadowColor: string) => {
+        ctx.save();
+        ctx.shadowColor = shadowColor;
+        ctx.shadowBlur = 3;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+        
+        ctx.fillStyle = color;
+        ctx.strokeStyle = '#1a4d3a';
+        ctx.lineWidth = 1.5;
+        
+        ctx.beginPath();
+        ctx.moveTo(path[0][0], path[0][1]);
+        for (let i = 1; i < path.length; i++) {
+          ctx.lineTo(path[i][0], path[i][1]);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      };
+      
+      // アフリカ大陸 - より詳細な形状
+      drawContinent([
+        [850, 200], [900, 180], [950, 200], [980, 250],
+        [1000, 300], [1020, 400], [1000, 500], [980, 600],
+        [950, 700], [900, 750], [850, 720], [800, 650],
+        [780, 550], [800, 450], [820, 350], [840, 250]
+      ], '#2d5a2d', '#1a3d1a');
+      
+      // ヨーロッパ
+      drawContinent([
+        [820, 150], [880, 140], [920, 160], [940, 200],
+        [920, 240], [880, 250], [840, 240], [810, 200]
+      ], '#4a7c59', '#2d4a35');
+      
+      // アジア - 大きく詳細に
+      drawContinent([
+        [950, 140], [1300, 120], [1400, 150], [1450, 200],
+        [1480, 300], [1460, 400], [1400, 450], [1300, 480],
+        [1200, 460], [1100, 420], [1000, 380], [950, 300],
+        [940, 200]
+      ], '#3d6b3d', '#2a4a2a');
+      
+      // 北アメリカ
+      drawContinent([
+        [200, 100], [400, 80], [500, 120], [550, 200],
+        [520, 300], [480, 350], [400, 380], [300, 360],
+        [200, 320], [150, 250], [180, 180]
+      ], '#5d8a5d', '#3a5a3a');
+      
+      // 南アメリカ
+      drawContinent([
+        [450, 450], [520, 440], [560, 480], [580, 550],
+        [570, 650], [550, 750], [520, 820], [480, 850],
+        [440, 840], [410, 800], [400, 700], [420, 600],
+        [440, 500]
+      ], '#4a7a4a', '#2d4d2d');
+      
+      // オーストラリア
+      drawContinent([
+        [1350, 650], [1450, 640], [1500, 670], [1510, 720],
+        [1480, 760], [1420, 770], [1360, 750], [1340, 700]
+      ], '#6b9b6b', '#4a6a4a');
+      
+      // 山脈と地形の詳細
+      ctx.fillStyle = '#8FBC8F';
+      ctx.globalAlpha = 0.6;
+      
+      // ヒマラヤ山脈
+      for (let i = 0; i < 20; i++) {
+        const x = 1100 + Math.random() * 200;
+        const y = 250 + Math.random() * 100;
+        const radius = Math.random() * 15 + 8;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+      
+      // アンデス山脈
+      for (let i = 0; i < 30; i++) {
+        const x = 480 + Math.random() * 40;
+        const y = 450 + i * 15 + Math.random() * 20;
+        const radius = Math.random() * 12 + 6;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+      
+      ctx.globalAlpha = 1;
+      
+      // 緊張効果と雲の模様
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      for (let i = 0; i < 100; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const radius = Math.random() * 30 + 10;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+      
+      return new THREE.CanvasTexture(canvas);
+    };
     
-    // 高品質な地球テクスチャを作成
-    const canvas = document.createElement('canvas');
-    canvas.width = 2048;
-    canvas.height = 1024;
-    const ctx = canvas.getContext('2d')!;
+    // 法線マップの作成（立体感を向上）
+    const createNormalMap = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 2048;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d')!;
+      
+      // 基準となる青色
+      ctx.fillStyle = '#8080ff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // 山岳地帯の法線
+      ctx.fillStyle = '#a0a0ff';
+      for (let i = 0; i < 200; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const radius = Math.random() * 20 + 5;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+      
+      return new THREE.CanvasTexture(canvas);
+    };
     
-    // 海洋の美しいグラデーション
-    const oceanGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    oceanGradient.addColorStop(0, '#87CEEB');
-    oceanGradient.addColorStop(0.5, '#4682B4');
-    oceanGradient.addColorStop(1, '#191970');
-    ctx.fillStyle = oceanGradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // 高解像度地球の作成
+    const geometry = new THREE.SphereGeometry(1, 128, 64); // セグメント数を大幅増加
     
-    // 大陸をより詳細に描画
-    ctx.fillStyle = '#228B22';
-    ctx.strokeStyle = '#006400';
-    ctx.lineWidth = 2;
+    const earthTexture = createEarthTexture();
+    earthTexture.wrapS = THREE.RepeatWrapping;
+    earthTexture.wrapT = THREE.RepeatWrapping;
     
-    // アフリカ大陸
-    ctx.beginPath();
-    ctx.ellipse(900, 400, 150, 200, 0, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.stroke();
+    const normalMap = createNormalMap();
+    normalMap.wrapS = THREE.RepeatWrapping;
+    normalMap.wrapT = THREE.RepeatWrapping;
     
-    // ヨーロッパ
-    ctx.beginPath();
-    ctx.ellipse(850, 250, 80, 60, 0, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.stroke();
-    
-    // アジア
-    ctx.beginPath();
-    ctx.ellipse(1200, 300, 200, 150, 0, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.stroke();
-    
-    // 北アメリカ
-    ctx.beginPath();
-    ctx.ellipse(400, 250, 120, 100, 0, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.stroke();
-    
-    // 南アメリカ
-    ctx.beginPath();
-    ctx.ellipse(500, 600, 80, 150, 0, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.stroke();
-    
-    // オーストラリア
-    ctx.beginPath();
-    ctx.ellipse(1400, 700, 100, 60, 0, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.stroke();
-    
-    // 山脈や地形の詳細を追加
-    ctx.fillStyle = '#8FBC8F';
-    for (let i = 0; i < 50; i++) {
-      const x = Math.random() * canvas.width;
-      const y = Math.random() * canvas.height;
-      const radius = Math.random() * 20 + 5;
-      ctx.beginPath();
-      ctx.arc(x, y, radius, 0, 2 * Math.PI);
-      ctx.fill();
-    }
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    
-    const material = new THREE.MeshLambertMaterial({ 
-      map: texture,
+    const material = new THREE.MeshPhongMaterial({
+      map: earthTexture,
+      normalMap: normalMap,
+      normalScale: new THREE.Vector2(0.3, 0.3),
+      shininess: 10,
+      specular: new THREE.Color(0x333333),
       transparent: false
     });
     
     const globe = new THREE.Mesh(geometry, material);
     globeRef.current = globe;
     scene.add(globe);
+    
+    // 大気圏エフェクトの追加
+    const atmosphereGeometry = new THREE.SphereGeometry(1.03, 64, 32);
+    const atmosphereMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        time: { value: 0 }
+      },
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vPosition = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float time;
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        void main() {
+          float intensity = pow(0.6 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.0);
+          vec3 atmosphere = vec3(0.3, 0.6, 1.0) * intensity;
+          gl_FragColor = vec4(atmosphere, intensity * 0.8);
+        }
+      `,
+      blending: THREE.AdditiveBlending,
+      side: THREE.BackSide,
+      transparent: true
+    });
+    
+    const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+    scene.add(atmosphere);
+    
+    // 雲レイヤーの追加
+    const createCloudTexture = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 2048;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d')!;
+      
+      // 透明背景
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // 雲のパターンを作成
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      
+      // パーリンノイズ風の雲模様
+      for (let i = 0; i < 200; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const radius = Math.random() * 100 + 50;
+        const opacity = Math.random() * 0.4 + 0.2;
+        
+        ctx.globalAlpha = opacity;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+      
+      // より大きな雲の塊
+      for (let i = 0; i < 50; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const radius = Math.random() * 200 + 100;
+        const opacity = Math.random() * 0.3 + 0.1;
+        
+        ctx.globalAlpha = opacity;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+      
+      ctx.globalAlpha = 1;
+      return new THREE.CanvasTexture(canvas);
+    };
+    
+    const cloudGeometry = new THREE.SphereGeometry(1.01, 64, 32);
+    const cloudTexture = createCloudTexture();
+    cloudTexture.wrapS = THREE.RepeatWrapping;
+    cloudTexture.wrapT = THREE.RepeatWrapping;
+    
+    const cloudMaterial = new THREE.MeshLambertMaterial({
+      map: cloudTexture,
+      transparent: true,
+      opacity: 0.8,
+      depthWrite: false
+    });
+    
+    const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+    scene.add(clouds);
+    
+    // 雲の回転アニメーション
+    let cloudRotation = 0;
+    const animateClouds = () => {
+      cloudRotation += 0.001;
+      clouds.rotation.y = cloudRotation;
+    };
 
     // マーカーグループの作成
     const markers = new THREE.Group();
     markersRef.current = markers;
     scene.add(markers);
 
-    // ライトの追加
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    // 高品質ライティングシステム
+    // 環境光 - 全体的な明るさ
+    const ambientLight = new THREE.AmbientLight(0x404080, 0.4);
     scene.add(ambientLight);
     
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(1, 1, 1);
-    scene.add(directionalLight);
+    // メインの太陽光
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    sunLight.position.set(2, 1, 1);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    scene.add(sunLight);
+    
+    // リムライト（縁取り光）
+    const rimLight = new THREE.DirectionalLight(0x8eb7e8, 0.6);
+    rimLight.position.set(-1, 0.5, -1);
+    scene.add(rimLight);
+    
+    // 点光源（宇宙からの反射光を模擬）
+    const pointLight = new THREE.PointLight(0x4a90e2, 0.8, 100);
+    pointLight.position.set(0, 0, 3);
+    scene.add(pointLight);
+    
+    // ヘミスフェアライト（空と地面の色を模擬）
+    const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x2f4f4f, 0.5);
+    scene.add(hemiLight);
 
     // レイキャスターとマウス位置の初期化
     raycasterRef.current = new THREE.Raycaster();
@@ -417,6 +678,15 @@ export const Globe3D = ({
       if (globeRef.current && spinningRef.current) {
         globeRef.current.rotation.y += 0.02;
       }
+      
+      // 雲の回転アニメーション
+      animateClouds();
+      
+      // 星空の微細な回転
+      if (starField) {
+        starField.rotation.y += 0.0002;
+        starField.rotation.x += 0.0001;
+      }
 
       renderer.render(scene, camera);
     };
@@ -493,11 +763,11 @@ export const Globe3D = ({
         ref={mountRef} 
         style={{ 
           width: '100%', 
-          height: '500px',
-          border: '2px solid #e5e7eb',
+          height: '600px',
+          border: 'none',
           borderRadius: '12px',
           overflow: 'hidden',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+          background: 'transparent'
         }} 
       />
       
