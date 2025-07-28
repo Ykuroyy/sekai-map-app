@@ -67,7 +67,8 @@ export const Globe3D = ({
   const markersRef = useRef<THREE.Group | null>(null);
   const raycasterRef = useRef<THREE.Raycaster | null>(null);
   const mouseRef = useRef<THREE.Vector2 | null>(null);
-  const [isSpinning, setIsSpinning] = useState(true);
+  const spinningRef = useRef<boolean>(false);
+  const [isSpinning, setIsSpinning] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
   // 緯度経度を3D座標に変換
@@ -330,13 +331,12 @@ export const Globe3D = ({
 
     // アニメーションループ
     let animationId: number;
+    
     const animate = () => {
       animationId = requestAnimationFrame(animate);
 
-      if (globeRef.current) {
-        if (isSpinning) {
-          globeRef.current.rotation.y += 0.02;
-        }
+      if (globeRef.current && spinningRef.current) {
+        globeRef.current.rotation.y += 0.02;
       }
 
       renderer.render(scene, camera);
@@ -353,24 +353,41 @@ export const Globe3D = ({
     };
     window.addEventListener('resize', handleResize);
 
-    // 初期化完了後にすぐに回転開始
-    console.log('Globe initialized, starting rotation');
-    setIsSpinning(true);
+    // 初期化完了後に回転開始
+    const startSpinning = () => {
+      console.log('Globe initialized, starting rotation');
+      spinningRef.current = true;
+      setIsSpinning(true);
+      
+      // 3秒後に停止して準備完了にする
+      const stopTimer = setTimeout(() => {
+        console.log('Stopping globe rotation');
+        spinningRef.current = false;
+        setIsSpinning(false);
+        setIsReady(true);
+        if (onGlobeReady) {
+          onGlobeReady();
+        }
+      }, 3000);
+      
+      return stopTimer;
+    };
     
-    // 3秒後に停止して準備完了にする
-    const stopTimer = setTimeout(() => {
-      console.log('Stopping globe rotation');
-      setIsSpinning(false);
-      setIsReady(true);
-      if (onGlobeReady) {
-        onGlobeReady();
-      }
-    }, 3000);
+    // 少し遅延してから回転開始
+    const initTimer = setTimeout(() => {
+      const stopTimer = startSpinning();
+      // クリーンアップ用にタイマーを保存
+      (initTimer as any).stopTimer = stopTimer;
+    }, 500);
 
     // クリーンアップ
     return () => {
       cancelAnimationFrame(animationId);
-      clearTimeout(stopTimer);
+      clearTimeout(initTimer);
+      if ((initTimer as any).stopTimer) {
+        clearTimeout((initTimer as any).stopTimer);
+      }
+      spinningRef.current = false;
       window.removeEventListener('resize', handleResize);
       renderer.domElement.removeEventListener('click', handleClick);
       if (mountRef.current && renderer.domElement) {
@@ -382,7 +399,7 @@ export const Globe3D = ({
       }
       renderer.dispose();
     };
-  }, []);
+  }, [onGlobeReady]);
 
   // マーカーの更新
   useEffect(() => {
