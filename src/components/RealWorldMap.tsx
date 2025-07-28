@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FallbackWorldMap } from './FallbackWorldMap';
 
 interface RealWorldMapProps {
   highlightedCountry?: string;
@@ -136,19 +137,62 @@ export const RealWorldMap = ({
     const loadWorldData = async () => {
       try {
         setIsLoading(true);
-        // Natural Earth の世界地図データ（低解像度版）
-        const response = await fetch('https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson');
         
-        if (!response.ok) {
-          throw new Error('世界地図データの読み込みに失敗しました');
+        // 複数のデータソースを試す
+        const sources = [
+          'https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson',
+          'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',
+          'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
+        ];
+        
+        let data = null;
+        let lastError = null;
+        
+        for (const source of sources) {
+          try {
+            console.log(`Trying to load from: ${source}`);
+            const response = await fetch(source);
+            
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const jsonData = await response.json();
+            
+            // TopoJSONの場合は変換が必要
+            if (jsonData.objects && jsonData.objects.countries) {
+              // TopoJSON形式 - 簡単な変換を試みる
+              console.log('TopoJSON detected, using fallback data');
+              throw new Error('TopoJSON format not supported, trying next source');
+            }
+            
+            // GeoJSON形式を確認
+            if (jsonData.features && Array.isArray(jsonData.features)) {
+              data = jsonData;
+              console.log(`Successfully loaded ${jsonData.features.length} countries`);
+              break;
+            } else {
+              throw new Error('Invalid GeoJSON format');
+            }
+          } catch (err) {
+            console.warn(`Failed to load from ${source}:`, err);
+            lastError = err;
+            continue;
+          }
         }
         
-        const data = await response.json();
+        if (!data) {
+          throw lastError || new Error('All data sources failed');
+        }
+        
         setCountries(data.features || []);
         setError(null);
       } catch (err) {
         console.error('World map loading error:', err);
-        setError('世界地図を読み込めませんでした');
+        setError('オンライン地図データを読み込めませんでした。オフライン地図を使用します。');
+        
+        // フォールバック: 空の配列を設定してフォールバック地図を表示
+        setCountries([]);
       } finally {
         setIsLoading(false);
       }
@@ -244,22 +288,16 @@ export const RealWorldMap = ({
     );
   }
 
-  if (error) {
+  // エラーがある場合または国データが空の場合はフォールバック地図を使用
+  if (error || countries.length === 0) {
     return (
-      <div className="world-map-container">
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '400px',
-          fontSize: '16px',
-          color: '#ef4444',
-          textAlign: 'center'
-        }}>
-          ❌ {error}<br />
-          <small>しばらく待ってから再試行してください</small>
-        </div>
-      </div>
+      <FallbackWorldMap 
+        highlightedCountry={highlightedCountry}
+        selectedCountry={selectedCountry}
+        isCorrect={isCorrect}
+        onCountryClick={onCountryClick}
+        options={options}
+      />
     );
   }
 
