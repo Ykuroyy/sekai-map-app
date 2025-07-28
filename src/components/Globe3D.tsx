@@ -84,11 +84,18 @@ export const Globe3D = ({
 
   // 国マーカーを作成
   const createCountryMarker = (countryId: string, position: THREE.Vector3, color: number = 0xffffff) => {
-    const geometry = new THREE.SphereGeometry(0.02, 8, 8);
-    const material = new THREE.MeshBasicMaterial({ color });
+    // マーカーを大きくして見やすくする
+    const geometry = new THREE.SphereGeometry(0.05, 16, 16);
+    const material = new THREE.MeshLambertMaterial({ 
+      color,
+      emissive: color,
+      emissiveIntensity: 0.3
+    });
     const marker = new THREE.Mesh(geometry, material);
     marker.position.copy(position);
     (marker as any).userData = { countryId };
+    
+    console.log(`Created marker for ${countryId} at position`, position);
     
     // 国名ラベル（オプション）
     const canvas = document.createElement('canvas');
@@ -130,9 +137,10 @@ export const Globe3D = ({
       }
       
       const { marker, sprite } = createCountryMarker(highlightedCountry, position, color);
-      marker.scale.setScalar(2); // 大きくする
+      marker.scale.setScalar(1.5); // 問題の国を大きくする
       markersRef.current?.add(marker);
       markersRef.current?.add(sprite);
+      console.log(`Added highlighted country marker: ${highlightedCountry}`);
     }
 
     // 選択肢の国のマーカー
@@ -150,9 +158,10 @@ export const Globe3D = ({
       }
       
       const { marker, sprite } = createCountryMarker(countryId, position, color);
-      marker.scale.setScalar(1.5); // 少し大きくする
+      marker.scale.setScalar(1.2); // 選択肢の国も見やすくする
       markersRef.current?.add(marker);
       markersRef.current?.add(sprite);
+      console.log(`Added option marker: ${countryId} (clickable: ${options.includes(countryId)})`);
     });
   };
 
@@ -182,30 +191,80 @@ export const Globe3D = ({
     // 地球の作成
     const geometry = new THREE.SphereGeometry(1, 64, 32);
     
-    // 地球のテクスチャを作成（キャンバスで地球の見た目を描画）
+    // 高品質な地球テクスチャを作成
     const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 512;
+    canvas.width = 2048;
+    canvas.height = 1024;
     const ctx = canvas.getContext('2d')!;
     
-    // 海洋の色
-    ctx.fillStyle = '#4a90e2';
+    // 海洋の美しいグラデーション
+    const oceanGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    oceanGradient.addColorStop(0, '#87CEEB');
+    oceanGradient.addColorStop(0.5, '#4682B4');
+    oceanGradient.addColorStop(1, '#191970');
+    ctx.fillStyle = oceanGradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // 大陸の簡易描画
-    ctx.fillStyle = '#8fbc8f';
+    // 大陸をより詳細に描画
+    ctx.fillStyle = '#228B22';
+    ctx.strokeStyle = '#006400';
+    ctx.lineWidth = 2;
     
-    // アフリカ・ヨーロッパ・アジア
-    ctx.fillRect(400, 180, 300, 200);
+    // アフリカ大陸
+    ctx.beginPath();
+    ctx.ellipse(900, 400, 150, 200, 0, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+    
+    // ヨーロッパ
+    ctx.beginPath();
+    ctx.ellipse(850, 250, 80, 60, 0, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+    
+    // アジア
+    ctx.beginPath();
+    ctx.ellipse(1200, 300, 200, 150, 0, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+    
     // 北アメリカ
-    ctx.fillRect(150, 150, 150, 120);
+    ctx.beginPath();
+    ctx.ellipse(400, 250, 120, 100, 0, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+    
     // 南アメリカ
-    ctx.fillRect(200, 280, 100, 180);
+    ctx.beginPath();
+    ctx.ellipse(500, 600, 80, 150, 0, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+    
     // オーストラリア
-    ctx.fillRect(650, 350, 80, 60);
+    ctx.beginPath();
+    ctx.ellipse(1400, 700, 100, 60, 0, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+    
+    // 山脈や地形の詳細を追加
+    ctx.fillStyle = '#8FBC8F';
+    for (let i = 0; i < 50; i++) {
+      const x = Math.random() * canvas.width;
+      const y = Math.random() * canvas.height;
+      const radius = Math.random() * 20 + 5;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, 2 * Math.PI);
+      ctx.fill();
+    }
     
     const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.MeshBasicMaterial({ map: texture });
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    
+    const material = new THREE.MeshLambertMaterial({ 
+      map: texture,
+      transparent: false
+    });
     
     const globe = new THREE.Mesh(geometry, material);
     globeRef.current = globe;
@@ -230,21 +289,40 @@ export const Globe3D = ({
 
     // マウスクリックイベント
     const handleClick = (event: MouseEvent) => {
-      if (!raycasterRef.current || !mouseRef.current || !camera || isSpinning) return;
+      console.log('Globe clicked, isSpinning:', isSpinning, 'isReady:', isReady);
+      
+      if (!raycasterRef.current || !mouseRef.current || !camera || isSpinning || !isReady) {
+        console.log('Click ignored - not ready');
+        return;
+      }
 
       const rect = renderer.domElement.getBoundingClientRect();
       mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycasterRef.current.setFromCamera(mouseRef.current, camera);
-      const intersects = raycasterRef.current.intersectObjects(markersRef.current!.children);
+      
+      if (!markersRef.current) {
+        console.log('No markers ref');
+        return;
+      }
+      
+      const intersects = raycasterRef.current.intersectObjects(markersRef.current.children, true);
+      console.log('Intersects found:', intersects.length);
 
       if (intersects.length > 0) {
         const clickedObject = intersects[0].object;
         const countryId = (clickedObject as any).userData?.countryId;
+        console.log('Clicked country:', countryId, 'Options:', options);
+        
         if (countryId && options.includes(countryId) && onCountryClick) {
+          console.log('Calling onCountryClick for:', countryId);
           onCountryClick(countryId);
+        } else {
+          console.log('Click not valid:', { countryId, inOptions: options.includes(countryId), hasCallback: !!onCountryClick });
         }
+      } else {
+        console.log('No intersects found');
       }
     };
 
@@ -275,24 +353,32 @@ export const Globe3D = ({
     };
     window.addEventListener('resize', handleResize);
 
-    // 初期化後に回転を開始
-    setTimeout(() => {
-      setIsSpinning(true);
-      // 3秒後に停止
-      setTimeout(() => {
-        setIsSpinning(false);
-        setIsReady(true);
-        onGlobeReady && onGlobeReady();
-      }, 3000);
-    }, 500);
+    // 初期化完了後にすぐに回転開始
+    console.log('Globe initialized, starting rotation');
+    setIsSpinning(true);
+    
+    // 3秒後に停止して準備完了にする
+    const stopTimer = setTimeout(() => {
+      console.log('Stopping globe rotation');
+      setIsSpinning(false);
+      setIsReady(true);
+      if (onGlobeReady) {
+        onGlobeReady();
+      }
+    }, 3000);
 
     // クリーンアップ
     return () => {
       cancelAnimationFrame(animationId);
+      clearTimeout(stopTimer);
       window.removeEventListener('resize', handleResize);
       renderer.domElement.removeEventListener('click', handleClick);
       if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement);
+        try {
+          mountRef.current.removeChild(renderer.domElement);
+        } catch (e) {
+          console.warn('Failed to remove renderer element:', e);
+        }
       }
       renderer.dispose();
     };
