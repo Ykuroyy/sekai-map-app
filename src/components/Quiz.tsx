@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { CountryShape } from './CountryShape';
+import { WorldMap } from './WorldMap';
 import { countries, getRandomCountries, type Country } from '../data/countries';
-import { getCountryShape } from '../data/countryShapes';
+import { getCountryPath } from '../data/worldMapSvg';
 
 interface QuizProps {
   onScoreUpdate: (score: number) => void;
@@ -17,12 +17,12 @@ export const Quiz = ({ onScoreUpdate, onQuestionComplete }: QuizProps) => {
   const [questionCount, setQuestionCount] = useState(0);
 
   const generateNewQuestion = () => {
-    const countriesWithShapes = countries.filter(c => getCountryShape(c.id));
-    const randomIndex = Math.floor(Math.random() * countriesWithShapes.length);
-    const country = countriesWithShapes[randomIndex];
+    const countriesWithPaths = countries.filter(c => getCountryPath(c.id));
+    const randomIndex = Math.floor(Math.random() * countriesWithPaths.length);
+    const country = countriesWithPaths[randomIndex];
     
     const wrongOptions = getRandomCountries(3, country.id).filter(c => 
-      getCountryShape(c.id)
+      getCountryPath(c.id)
     );
     const allOptions = [country, ...wrongOptions].sort(() => Math.random() - 0.5);
     
@@ -57,9 +57,7 @@ export const Quiz = ({ onScoreUpdate, onQuestionComplete }: QuizProps) => {
     }, 2000);
   };
 
-  const currentShape = currentCountry ? getCountryShape(currentCountry.id) : null;
-
-  if (!currentCountry || !currentShape) {
+  if (!currentCountry) {
     return <div>Loading...</div>;
   }
 
@@ -70,32 +68,26 @@ export const Quiz = ({ onScoreUpdate, onQuestionComplete }: QuizProps) => {
       </div>
       
       <div className="question-section">
-        <h2 className="question-text">この国はどこ？</h2>
-        <CountryShape 
-          shape={currentShape}
-          isCorrect={isAnswered && selectedOption === currentCountry.id}
-          isSelected={isAnswered && selectedOption !== currentCountry.id}
-          onClick={undefined}
+        <h2 className="question-text">青い国はどこ？地図上でクリックしてください</h2>
+        <WorldMap
+          highlightedCountry={currentCountry.id}
+          selectedCountry={selectedOption || undefined}
+          isCorrect={isAnswered ? selectedOption === currentCountry.id : undefined}
+          onCountryClick={handleOptionClick}
+          options={options.map(option => option.id)}
         />
       </div>
       
-      <div className="options-section">
-        {options.map((option) => (
-          <button
-            key={option.id}
-            onClick={() => handleOptionClick(option.id)}
-            disabled={isAnswered}
-            className={`option-button ${
-              isAnswered && option.id === currentCountry.id
-                ? 'correct'
-                : isAnswered && option.id === selectedOption
-                ? 'incorrect'
-                : ''
-            }`}
-          >
-            {option.nameJa}
-          </button>
-        ))}
+      <div className="options-list">
+        <h3>選択肢:</h3>
+        <div className="options-text">
+          {options.map((option, index) => (
+            <span key={option.id} className="option-text">
+              {String.fromCharCode(65 + index)}. {option.nameJa}
+              {index < options.length - 1 && '　'}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
