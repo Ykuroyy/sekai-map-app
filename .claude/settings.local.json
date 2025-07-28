@@ -9,7 +9,9 @@
       "Bash(ls:*)",
       "Bash(rm:*)",
       "Bash(npm run build:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(npx tsc:*)",
+      "Bash(timeout 10s npm run dev)"
     ],
     "deny": []
   }
