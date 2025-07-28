@@ -36,7 +36,7 @@ export const Quiz = ({ onScoreUpdate, onQuestionComplete }: QuizProps) => {
     generateNewQuestion();
   }, []);
 
-  const handleOptionClick = (countryId: string) => {
+  const handleAnswerClick = (countryId: string) => {
     if (isAnswered) return;
     
     setSelectedOption(countryId);
@@ -72,15 +72,13 @@ export const Quiz = ({ onScoreUpdate, onQuestionComplete }: QuizProps) => {
           <h2 className="question-text">地球儀が回転中...</h2>
         )}
         {isGlobeReady && showQuestion && (
-          <h2 className="question-text">青い国はどこ？マーカーをクリックしてください</h2>
+          <h2 className="question-text">正面に来た国はどこでしょう？</h2>
         )}
         
         <Globe3D
-          highlightedCountry={showQuestion ? currentCountry.id : undefined}
+          targetCountry={showQuestion ? currentCountry.id : undefined}
           selectedCountry={selectedOption || undefined}
           isCorrect={isAnswered ? selectedOption === currentCountry.id : undefined}
-          onCountryClick={handleOptionClick}
-          options={showQuestion ? options.map(option => option.id) : []}
           onGlobeReady={() => {
             setIsGlobeReady(true);
             setTimeout(() => {
@@ -91,16 +89,27 @@ export const Quiz = ({ onScoreUpdate, onQuestionComplete }: QuizProps) => {
       </div>
       
       {showQuestion && (
-        <div className="options-list">
-          <h3>選択肢:</h3>
-          <div className="options-text">
-            {options.map((option, index) => (
-              <span key={option.id} className="option-text">
-                {String.fromCharCode(65 + index)}. {option.nameJa}
-                {index < options.length - 1 && '　'}
-              </span>
-            ))}
-          </div>
+        <div className="answer-buttons">
+          {options.map((option, index) => (
+            <button
+              key={option.id}
+              className={`answer-button ${
+                isAnswered && option.id === selectedOption
+                  ? selectedOption === currentCountry.id
+                    ? 'correct'
+                    : 'incorrect'
+                  : ''
+              } ${
+                isAnswered && option.id === currentCountry.id && option.id !== selectedOption
+                  ? 'correct-answer'
+                  : ''
+              }`}
+              onClick={() => handleAnswerClick(option.id)}
+              disabled={isAnswered}
+            >
+              {String.fromCharCode(65 + index)}. {option.nameJa}
+            </button>
+          ))}
         </div>
       )}
     </div>

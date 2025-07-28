@@ -2,11 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 
 interface Globe3DProps {
-  highlightedCountry?: string;
+  targetCountry?: string;
   selectedCountry?: string;
   isCorrect?: boolean;
-  onCountryClick?: (countryId: string) => void;
-  options?: string[];
   onGlobeReady?: () => void;
 }
 
@@ -53,11 +51,9 @@ const countryCoordinates: { [key: string]: { lat: number; lng: number; name: str
 };
 
 export const Globe3D = ({
-  highlightedCountry,
+  targetCountry,
   selectedCountry,
   isCorrect,
-  onCountryClick,
-  options = [],
   onGlobeReady
 }: Globe3DProps) => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -84,126 +80,50 @@ export const Globe3D = ({
     return new THREE.Vector3(x, y, z);
   };
 
-  // 国マーカーを作成
-  const createCountryMarker = (countryId: string, position: THREE.Vector3, camera: THREE.Camera, color: number = 0xffffff) => {
-    // クリック用の大きな透明球体を作成
-    const clickGeometry = new THREE.SphereGeometry(0.2, 32, 32); // サイズとセグメントを増加
-    const clickMaterial = new THREE.MeshBasicMaterial({ 
-      transparent: true, 
-      opacity: 0,
-      color: 0x000000
-    });
-    const clickSphere = new THREE.Mesh(clickGeometry, clickMaterial);
-    clickSphere.position.copy(position);
-    (clickSphere as any).userData = { countryId };
+  // 正面に来た国を視覚的にハイライト
+  const addCountryHighlight = () => {
+    if (!targetCountry || !countryCoordinates[targetCountry] || !markersRef.current) return;
     
-    // 見た目用の小さな光る球体を作成
-    const visualGeometry = new THREE.SphereGeometry(0.1, 32, 32); // サイズとセグメントを増加
-    const visualMaterial = new THREE.MeshLambertMaterial({ 
+    // 既存のハイライトをクリア
+    while (markersRef.current.children.length > 0) {
+      markersRef.current.remove(markersRef.current.children[0]);
+    }
+    
+    const coord = countryCoordinates[targetCountry];
+    const position = latLngToVector3(coord.lat, coord.lng, 1.02);
+    
+    // 結果に応じて色を決定
+    let color = 0x3b82f6; // デフォルトは青
+    if (isCorrect !== undefined) {
+      color = isCorrect ? 0x22c55e : 0xef4444; // 緑または赤
+    }
+    
+    // ハイライト用の光る球体
+    const highlightGeometry = new THREE.SphereGeometry(0.08, 32, 32);
+    const highlightMaterial = new THREE.MeshLambertMaterial({ 
       color,
       emissive: color,
-      emissiveIntensity: 0.7 // 明度を上げる
+      emissiveIntensity: 0.8
     });
-    const visualMarker = new THREE.Mesh(visualGeometry, visualMaterial);
-    visualMarker.position.copy(position);
+    const highlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
+    highlight.position.copy(position);
     
-    // パルス効果用のリング
-    const ringGeometry = new THREE.RingGeometry(0.12, 0.15, 32);
+    // パルス効果
+    const ringGeometry = new THREE.RingGeometry(0.1, 0.15, 32);
     const ringMaterial = new THREE.MeshBasicMaterial({ 
       color,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.6,
       side: THREE.DoubleSide
     });
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
     ring.position.copy(position);
-    ring.lookAt(camera.position);
+    ring.lookAt(new THREE.Vector3(0, 0, 3)); // カメラ方向を向く
     
-    // グループにまとめる
-    const markerGroup = new THREE.Group();
-    markerGroup.add(clickSphere);
-    markerGroup.add(visualMarker);
-    markerGroup.add(ring);
-    (markerGroup as any).userData = { countryId };
+    markersRef.current.add(highlight);
+    markersRef.current.add(ring);
     
-    console.log(`✅ Created marker for ${countryId} at position`, position, 'userData:', (markerGroup as any).userData);
-    
-    // 国名ラベル
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d')!;
-    canvas.width = 256;
-    canvas.height = 64;
-    context.font = 'Bold 24px Arial';
-    context.fillStyle = 'white';
-    context.strokeStyle = 'black';
-    context.lineWidth = 2;
-    context.textAlign = 'center';
-    context.strokeText(countryCoordinates[countryId]?.name || countryId, 128, 40);
-    context.fillText(countryCoordinates[countryId]?.name || countryId, 128, 40);
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-    const sprite = new THREE.Sprite(spriteMaterial);
-    sprite.scale.set(0.4, 0.1, 1);
-    sprite.position.copy(position);
-    sprite.position.multiplyScalar(1.25);
-    
-    return { marker: markerGroup, sprite };
-  };
-
-  // マーカーを更新
-  const updateMarkers = (camera: THREE.Camera) => {
-    if (!markersRef.current) return;
-    
-    // 既存のマーカーをクリア
-    while (markersRef.current.children.length > 0) {
-      markersRef.current.remove(markersRef.current.children[0]);
-    }
-
-    console.log('🔄 Updating markers for options:', options, 'highlighted:', highlightedCountry);
-
-    // 問題の国のマーカー
-    if (highlightedCountry && countryCoordinates[highlightedCountry]) {
-      const coord = countryCoordinates[highlightedCountry];
-      const position = latLngToVector3(coord.lat, coord.lng, 1.02);
-      let color = 0x3b82f6; // 青
-      
-      if (isCorrect !== undefined) {
-        color = isCorrect ? 0x22c55e : 0xef4444; // 緑または赤
-      }
-      
-      const { marker, sprite } = createCountryMarker(highlightedCountry, position, camera, color);
-      marker.scale.setScalar(1.8); // 問題の国を大きくする
-      markersRef.current?.add(marker);
-      markersRef.current?.add(sprite);
-      console.log(`✅ Added highlighted country marker: ${highlightedCountry}`);
-    }
-
-    // 選択肢の国のマーカー
-    options.forEach(countryId => {
-      if (countryId === highlightedCountry) return; // 問題の国は既に描画済み
-      
-      const coord = countryCoordinates[countryId];
-      if (!coord) {
-        console.warn(`❌ No coordinates found for ${countryId}`);
-        return;
-      }
-      
-      const position = latLngToVector3(coord.lat, coord.lng, 1.02);
-      let color = 0xfbbf24; // 黄色
-      
-      if (countryId === selectedCountry) {
-        color = isCorrect ? 0x22c55e : 0xef4444; // 緑または赤
-      }
-      
-      const { marker, sprite } = createCountryMarker(countryId, position, camera, color);
-      marker.scale.setScalar(1.5); // 選択肢の国も見やすくする
-      markersRef.current?.add(marker);
-      markersRef.current?.add(sprite);
-      console.log(`✅ Added option marker: ${countryId} (clickable: ${options.includes(countryId)})`);
-    });
-    
-    console.log(`📊 Total markers created: ${markersRef.current.children.length}`);
+    console.log(`✅ Added highlight for target country: ${targetCountry}`);
   };
 
   useEffect(() => {
@@ -943,93 +863,31 @@ export const Globe3D = ({
     raycasterRef.current = new THREE.Raycaster();
     mouseRef.current = new THREE.Vector2();
 
-    // マウスクリックイベント
-    const handleClick = (event: MouseEvent) => {
-      console.log('🖱️ Globe clicked, isSpinning:', spinningRef.current, 'isReady:', isReady, 'options:', options);
-      
-      if (!raycasterRef.current || !mouseRef.current || !camera || spinningRef.current || !isReady) {
-        console.log('❌ Click ignored - not ready');
-        return;
-      }
-
-      const rect = renderer.domElement.getBoundingClientRect();
-      mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-      console.log('📍 Mouse coordinates:', mouseRef.current.x, mouseRef.current.y);
-
-      raycasterRef.current.setFromCamera(mouseRef.current, camera);
-      
-      if (!markersRef.current) {
-        console.log('❌ No markers ref');
-        return;
-      }
-      
-      // レイキャスターの設定を最適化
-      raycasterRef.current.far = 1000;
-      raycasterRef.current.near = 0.01;
-      
-      const intersects = raycasterRef.current.intersectObjects(markersRef.current.children, true);
-      console.log(`🎯 Found ${intersects.length} intersects:`, intersects.map(i => ({
-        objectType: i.object.type,
-        distance: i.distance.toFixed(3),
-        userData: (i.object as any).userData,
-        parentUserData: (i.object.parent as any)?.userData
-      })));
-
-      if (intersects.length > 0) {
-        // 距離順にソートして最も近いものから処理
-        intersects.sort((a, b) => a.distance - b.distance);
-        
-        for (const intersect of intersects) {
-          let countryId = (intersect.object as any).userData?.countryId;
-          
-          // 親オブジェクトからもユーザーデータを確認
-          if (!countryId && intersect.object.parent) {
-            countryId = (intersect.object.parent as any).userData?.countryId;
-          }
-          
-          console.log('🔍 Processing intersect:', { 
-            countryId, 
-            availableOptions: options, 
-            isClickable: options.includes(countryId || ''),
-            hasCallback: !!onCountryClick 
-          });
-          
-          if (countryId && options.includes(countryId) && onCountryClick) {
-            console.log('✅ SUCCESS: Calling onCountryClick for:', countryId);
-            onCountryClick(countryId);
-            return; // 最初の有効なクリックで終了
-          }
-        }
-        
-        console.log('❌ No valid clickable country found in intersects');
-      } else {
-        console.log('❌ No intersects found');
-        
-        // デバッグ用：全マーカーの状態を確認
-        console.log('📊 Available markers debug info:');
-        markersRef.current.children.forEach((child, index) => {
-          console.log(`  Marker ${index}:`, {
-            userData: (child as any).userData,
-            position: `(${child.position.x.toFixed(2)}, ${child.position.y.toFixed(2)}, ${child.position.z.toFixed(2)})`,
-            visible: child.visible,
-            children: child.children.length
-          });
-        });
-      }
-    };
-
-    renderer.domElement.addEventListener('click', handleClick);
+    // クリック機能は不要（ボタンで選択するため）
 
     // アニメーションループ
     let animationId: number;
+    let startTime = Date.now();
     
     const animate = () => {
       animationId = requestAnimationFrame(animate);
+      const currentTime = Date.now();
+      const elapsed = currentTime - startTime;
 
       if (globeRef.current && spinningRef.current) {
-        globeRef.current.rotation.y += 0.02;
+        // 3秒間で目標位置に向かって滑らかに回転
+        const progress = Math.min(elapsed / 3000, 1);
+        const easeProgress = 1 - Math.pow(1 - progress, 3); // easeOut効果
+        
+        // 初期の高速回転 + 目標位置への補間
+        const baseRotationY = elapsed * 0.003; // 基本の回転速度
+        
+        // 目標回転を取得（stopTimerに保存されている）
+        const targetRotation = (initTimer as any)?.stopTimer?.targetRotation || { x: 0, y: 0 };
+        
+        // 滑らかに目標位置へ
+        globeRef.current.rotation.y = baseRotationY + (targetRotation.y * easeProgress);
+        globeRef.current.rotation.x = targetRotation.x * easeProgress;
       }
       
       // 雲の回転アニメーション
@@ -1055,22 +913,54 @@ export const Globe3D = ({
     };
     window.addEventListener('resize', handleResize);
 
+    // 指定された国が正面に来るように回転計算
+    const calculateTargetRotation = (countryId: string) => {
+      const coord = countryCoordinates[countryId];
+      if (!coord) return { x: 0, y: 0 };
+      
+      // 経度を地球儀のY軸回転に変換（西経は正の値、東経は負の値）
+      const targetY = -coord.lng * (Math.PI / 180);
+      
+      // 緯度を地球儀のX軸回転に変換（北緯は負の値、南緯は正の値）  
+      const targetX = -coord.lat * (Math.PI / 180);
+      
+      return { x: targetX, y: targetY };
+    };
+
     // 初期化完了後に回転開始
     const startSpinning = () => {
       console.log('Globe initialized, starting rotation');
       spinningRef.current = true;
       setIsSpinning(true);
       
-      // 3秒後に停止して準備完了にする
+      let targetRotation = { x: 0, y: 0 };
+      
+      // targetCountryが設定されている場合、その国が正面に来るように計算
+      if (targetCountry && countryCoordinates[targetCountry]) {
+        targetRotation = calculateTargetRotation(targetCountry);
+        console.log(`Target country: ${targetCountry}, target rotation:`, targetRotation);
+      }
+      
+      // 3秒後に指定位置で停止
       const stopTimer = setTimeout(() => {
-        console.log('Stopping globe rotation');
+        console.log('Stopping globe rotation at target position');
         spinningRef.current = false;
         setIsSpinning(false);
+        
+        // 最終位置に設定
+        if (globeRef.current) {
+          globeRef.current.rotation.x = targetRotation.x;
+          globeRef.current.rotation.y = targetRotation.y;
+        }
+        
         setIsReady(true);
         if (onGlobeReady) {
           onGlobeReady();
         }
       }, 3000);
+      
+      // 回転アニメーション中の目標位置を保存
+      (stopTimer as any).targetRotation = targetRotation;
       
       return stopTimer;
     };
@@ -1091,7 +981,7 @@ export const Globe3D = ({
       }
       spinningRef.current = false;
       window.removeEventListener('resize', handleResize);
-      renderer.domElement.removeEventListener('click', handleClick);
+      // クリーンアップ処理
       if (mountRef.current && renderer.domElement) {
         try {
           mountRef.current.removeChild(renderer.domElement);
@@ -1103,12 +993,12 @@ export const Globe3D = ({
     };
   }, [onGlobeReady]);
 
-  // マーカーの更新
+  // ハイライトの更新
   useEffect(() => {
-    if (isReady && cameraRef.current) {
-      updateMarkers(cameraRef.current);
+    if (isReady) {
+      addCountryHighlight();
     }
-  }, [highlightedCountry, selectedCountry, isCorrect, options, isReady]);
+  }, [targetCountry, selectedCountry, isCorrect, isReady]);
 
   return (
     <div className="globe-container">
