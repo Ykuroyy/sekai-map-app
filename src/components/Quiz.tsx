@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { WorldMap } from './WorldMap';
+import { SimpleWorldMap } from './SimpleWorldMap';
 import { countries, getRandomCountries, type Country } from '../data/countries';
-import { getCountryPath } from '../data/worldMapSvg';
 
 interface QuizProps {
   onScoreUpdate: (score: number) => void;
@@ -17,13 +16,10 @@ export const Quiz = ({ onScoreUpdate, onQuestionComplete }: QuizProps) => {
   const [questionCount, setQuestionCount] = useState(0);
 
   const generateNewQuestion = () => {
-    const countriesWithPaths = countries.filter(c => getCountryPath(c.id));
-    const randomIndex = Math.floor(Math.random() * countriesWithPaths.length);
-    const country = countriesWithPaths[randomIndex];
+    const randomIndex = Math.floor(Math.random() * countries.length);
+    const country = countries[randomIndex];
     
-    const wrongOptions = getRandomCountries(3, country.id).filter(c => 
-      getCountryPath(c.id)
-    );
+    const wrongOptions = getRandomCountries(3, country.id);
     const allOptions = [country, ...wrongOptions].sort(() => Math.random() - 0.5);
     
     setCurrentCountry(country);
@@ -69,7 +65,7 @@ export const Quiz = ({ onScoreUpdate, onQuestionComplete }: QuizProps) => {
       
       <div className="question-section">
         <h2 className="question-text">青い国はどこ？地図上でクリックしてください</h2>
-        <WorldMap
+        <SimpleWorldMap
           highlightedCountry={currentCountry.id}
           selectedCountry={selectedOption || undefined}
           isCorrect={isAnswered ? selectedOption === currentCountry.id : undefined}
