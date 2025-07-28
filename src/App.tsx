@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import './App.css';
 import { Quiz } from './components/Quiz';
 
 function App() {
-  const [totalScore, setTotalScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
 
-  const handleScoreUpdate = (newScore: number) => {
-    setTotalScore(newScore);
+  const handleScoreUpdate = (_newScore: number) => {
+    // スコア更新処理（必要に応じて後で実装）
   };
 
   const handleQuestionComplete = (isCorrect: boolean) => {

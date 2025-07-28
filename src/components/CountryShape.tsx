@@ -1,5 +1,4 @@
-import React from 'react';
-import { CountryShape as CountryShapeType } from '../data/countryShapes';
+import type { CountryShape as CountryShapeType } from '../data/countryShapes';
 
 interface CountryShapeProps {
   shape: CountryShapeType;
@@ -8,12 +7,12 @@ interface CountryShapeProps {
   onClick?: () => void;
 }
 
-export const CountryShape: React.FC<CountryShapeProps> = ({ 
+export const CountryShape = ({ 
   shape, 
   isCorrect, 
   isSelected,
   onClick 
-}) => {
+}: CountryShapeProps) => {
   const fillColor = isCorrect 
     ? '#4ade80' 
     : isSelected 

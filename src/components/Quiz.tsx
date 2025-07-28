@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { CountryShape } from './CountryShape';
-import { countries, getRandomCountries, Country } from '../data/countries';
+import { countries, getRandomCountries, type Country } from '../data/countries';
 import { getCountryShape } from '../data/countryShapes';
 
 interface QuizProps {
@@ -8,7 +8,7 @@ interface QuizProps {
   onQuestionComplete: (isCorrect: boolean) => void;
 }
 
-export const Quiz: React.FC<QuizProps> = ({ onScoreUpdate, onQuestionComplete }) => {
+export const Quiz = ({ onScoreUpdate, onQuestionComplete }: QuizProps) => {
   const [currentCountry, setCurrentCountry] = useState<Country | null>(null);
   const [options, setOptions] = useState<Country[]>([]);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -75,6 +75,7 @@ export const Quiz: React.FC<QuizProps> = ({ onScoreUpdate, onQuestionComplete })
           shape={currentShape}
           isCorrect={isAnswered && selectedOption === currentCountry.id}
           isSelected={isAnswered && selectedOption !== currentCountry.id}
+          onClick={undefined}
         />
       </div>
       
