@@ -81,6 +81,49 @@ export const Globe3D = ({
   // State
   const [isSpinning, setIsSpinning] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [frontCountry, setFrontCountry] = useState<string>('');
+
+  // 正面の国を検出する関数（改良版）
+  const detectFrontCountry = useCallback(() => {
+    if (!globeRef.current || !isReady) return;
+    
+    const globe = globeRef.current;
+    let closestCountry = '';
+    let maxDotProduct = -1; // 最大のドット積（最も正面に近い）
+    
+    // カメラの正面方向ベクトル
+    const cameraDirection = new THREE.Vector3(0, 0, -1);
+    
+    // 各国の位置をチェック
+    Object.entries(countryCoordinates).forEach(([countryId, coord]) => {
+      // 国の3D位置を計算（地球座標系）
+      const phi = (90 - coord.lat) * (Math.PI / 180);
+      const theta = (coord.lng + 180) * (Math.PI / 180);
+      
+      const x = -Math.sin(phi) * Math.cos(theta);
+      const y = Math.cos(phi);
+      const z = Math.sin(phi) * Math.sin(theta);
+      
+      const countryPosition = new THREE.Vector3(x, y, z);
+      
+      // 地球儀の回転を適用
+      countryPosition.applyEuler(globe.rotation);
+      
+      // カメラ方向とのドット積を計算（-Z方向が正面）
+      const dotProduct = cameraDirection.dot(countryPosition);
+      
+      // 最も正面に近い国を検出
+      if (dotProduct > maxDotProduct) {
+        maxDotProduct = dotProduct;
+        closestCountry = countryId;
+      }
+    });
+    
+    if (closestCountry && closestCountry !== frontCountry) {
+      setFrontCountry(closestCountry);
+      console.log('正面の国:', countryCoordinates[closestCountry]?.name);
+    }
+  }, [isReady, frontCountry]);
 
   // 国のハイライト更新をメモ化
   const addCountryHighlight = useCallback(() => {
@@ -252,6 +295,11 @@ export const Globe3D = ({
         starField.rotation.y += 0.0002;
         starField.rotation.x += 0.0001;
       }
+      
+      // 正面の国を検出（回転停止後）
+      if (!spinningRef.current && isReady) {
+        detectFrontCountry();
+      }
 
       renderer.render(scene, camera);
     };
@@ -288,6 +336,12 @@ export const Globe3D = ({
         }
         
         setIsReady(true);
+        
+        // ターゲット国が設定されている場合、それを正面国として表示
+        if (targetCountry) {
+          setFrontCountry(targetCountry);
+        }
+        
         if (onGlobeReady) {
           onGlobeReady();
         }
@@ -335,7 +389,26 @@ export const Globe3D = ({
   }, [targetCountry, selectedCountry, isCorrect, isReady]);
 
   return (
-    <div className="globe-container">
+    <div className="globe-container" style={{ position: 'relative' }}>
+      {/* 正面の国指示 */}
+      {!isSpinning && isReady && (
+        <div className="front-country-label">
+          {frontCountry ? (
+            <>🌎 この国はどこでしょう？</>
+          ) : (
+            <>🌎 正面の国を探しています...</>
+          )}
+        </div>
+      )}
+      
+      {/* 十字線（クロスヘア） */}
+      {!isSpinning && (
+        <>
+          <div className="crosshair-vertical" />
+          <div className="crosshair-horizontal" />
+        </>
+      )}
+      
       <div 
         ref={mountRef} 
         style={{ 
@@ -352,6 +425,40 @@ export const Globe3D = ({
         <div className="spinning-message">
           <div className="spinner">🌍</div>
           <p>地球儀が回転しています...</p>
+        </div>
+      )}
+      
+      {/* 正面国名表示エリア */}
+      {frontCountry && !isSpinning && isReady && (
+        <div style={{
+          textAlign: 'center',
+          marginTop: '1rem',
+          padding: '1rem',
+          background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
+          borderRadius: '12px',
+          border: '2px solid #3b82f6',
+          boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)'
+        }}>
+          <div style={{
+            fontSize: '1.2rem',
+            fontWeight: 'bold',
+            color: '#1f2937',
+            marginBottom: '0.5rem'
+          }}>
+            正面の国
+          </div>
+          <div style={{
+            fontSize: '1.5rem',
+            fontWeight: 'bold',
+            color: '#3b82f6',
+            padding: '0.5rem 1rem',
+            background: 'white',
+            borderRadius: '8px',
+            display: 'inline-block',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+          }}>
+            {countryCoordinates[frontCountry]?.name || '不明'}
+          </div>
         </div>
       )}
       

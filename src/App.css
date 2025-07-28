@@ -287,3 +287,69 @@ body {
     font-size: 0.95rem;
   }
 }
+
+/* 正面国名表示のスタイル */
+.front-country-label {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.95) 0%, rgba(37, 99, 235, 0.95) 100%);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 25px;
+  font-size: 18px;
+  font-weight: bold;
+  z-index: 10;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  animation: fadeInDown 0.5s ease-in-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* 十字線のスタイル */
+.crosshair-vertical, .crosshair-horizontal {
+  position: absolute;
+  background: linear-gradient(45deg, rgba(59, 130, 246, 0.9), rgba(147, 197, 253, 0.9));
+  z-index: 5;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.4);
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+.crosshair-vertical {
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 50px;
+  transform: translate(-50%, -50%);
+}
+
+.crosshair-horizontal {
+  top: 50%;
+  left: 50%;
+  width: 50px;
+  height: 3px;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.8;
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 1), 0 0 40px rgba(59, 130, 246, 0.6);
+  }
+}
