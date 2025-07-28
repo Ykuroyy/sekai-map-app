@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { SimpleWorldMap } from './SimpleWorldMap';
+import { DetailedWorldMap } from './DetailedWorldMap';
 import { countries, getRandomCountries, type Country } from '../data/countries';
 
 interface QuizProps {
@@ -65,7 +65,7 @@ export const Quiz = ({ onScoreUpdate, onQuestionComplete }: QuizProps) => {
       
       <div className="question-section">
         <h2 className="question-text">青い国はどこ？地図上でクリックしてください</h2>
-        <SimpleWorldMap
+        <DetailedWorldMap
           highlightedCountry={currentCountry.id}
           selectedCountry={selectedOption || undefined}
           isCorrect={isAnswered ? selectedOption === currentCountry.id : undefined}
