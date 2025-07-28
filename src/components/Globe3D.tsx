@@ -282,177 +282,356 @@ export const Globe3D = ({
     
     const starField = createStarField();
 
-    // 高品質地球儀の作成
-    const createEarthTexture = () => {
+    // 超リアルな地球テクスチャの作成（NASA Blue Marble風）
+    const createRealisticEarthTexture = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = 4096;  // 4K解像度
-      canvas.height = 2048;
+      canvas.width = 8192;  // 8K解像度
+      canvas.height = 4096;
       const ctx = canvas.getContext('2d')!;
       
-      // リアルな海洋グラデーション
-      const oceanGradient = ctx.createRadialGradient(
-        canvas.width/2, canvas.height/2, 0,
-        canvas.width/2, canvas.height/2, canvas.height/2
-      );
-      oceanGradient.addColorStop(0, '#006994');
-      oceanGradient.addColorStop(0.3, '#0077be');
-      oceanGradient.addColorStop(0.6, '#004d6b');
-      oceanGradient.addColorStop(1, '#002a3a');
-      ctx.fillStyle = oceanGradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // 実際の地球の色に基づいた詳細な海洋
+      const oceanData = ctx.createImageData(canvas.width, canvas.height);
+      const data = oceanData.data;
       
-      // 詳細な大陸の描画
-      const drawContinent = (path: [number, number][], color: string, shadowColor: string) => {
+      for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          const idx = (y * canvas.width + x) * 4;
+          
+          // 緯度に基づく海洋色の変化
+          const lat = ((y / canvas.height) - 0.5) * Math.PI;
+          const lng = ((x / canvas.width) - 0.5) * 2 * Math.PI;
+          
+          // 深海の色（緯度による変化）
+          const tempFactor = Math.cos(lat);
+          const r = Math.floor(12 + tempFactor * 20 + Math.sin(lng * 10) * 5);
+          const g = Math.floor(54 + tempFactor * 30 + Math.cos(lng * 8) * 8);
+          const b = Math.floor(85 + tempFactor * 40 + Math.sin(lng * 6) * 10);
+          
+          data[idx] = Math.max(0, Math.min(255, r));
+          data[idx + 1] = Math.max(0, Math.min(255, g));
+          data[idx + 2] = Math.max(0, Math.min(255, b));
+          data[idx + 3] = 255;
+        }
+      }
+      
+      ctx.putImageData(oceanData, 0, 0);
+      
+      // 超詳細な大陸データ（実際の地形に基づく）
+      const continentData = [
+        // アフリカ大陸（詳細な輪郭）
+        {
+          name: 'Africa',
+          color: '#2d5016',
+          shadowColor: '#1f3810',
+          points: [
+            [3400, 800], [3600, 700], [3800, 750], [4000, 900], [4200, 1100],
+            [4300, 1400], [4350, 1700], [4300, 2000], [4200, 2300], [4000, 2600],
+            [3800, 2800], [3600, 2900], [3400, 2850], [3200, 2700], [3000, 2400],
+            [2900, 2100], [2950, 1800], [3000, 1500], [3100, 1200], [3200, 900]
+          ]
+        },
+        // ユーラシア大陸
+        {
+          name: 'Eurasia',
+          color: '#3d6b1f',
+          shadowColor: '#2a4a15',
+          points: [
+            [3200, 600], [5200, 400], [6800, 500], [7200, 700], [7400, 1000],
+            [7300, 1300], [7000, 1500], [6500, 1600], [5800, 1550], [5000, 1400],
+            [4200, 1200], [3800, 1000], [3400, 800], [3200, 600]
+          ]
+        },
+        // 北アメリカ
+        {
+          name: 'North America',
+          color: '#4a7c2a',
+          shadowColor: '#35591e',
+          points: [
+            [800, 400], [1600, 300], [2000, 400], [2200, 700], [2100, 1000],
+            [1900, 1200], [1600, 1300], [1200, 1250], [800, 1100], [600, 900],
+            [650, 650], [700, 400]
+          ]
+        },
+        // 南アメリカ
+        {
+          name: 'South America',
+          color: '#2d5a1a',
+          shadowColor: '#1f3d12',
+          points: [
+            [1800, 1800], [2100, 1750], [2300, 1900], [2350, 2200], [2300, 2500],
+            [2200, 2800], [2000, 3100], [1800, 3300], [1600, 3250], [1400, 3000],
+            [1350, 2700], [1400, 2400], [1500, 2100], [1650, 1850]
+          ]
+        },
+        // オーストラリア
+        {
+          name: 'Australia',
+          color: '#5d8a35',
+          shadowColor: '#426327',
+          points: [
+            [5400, 2600], [5800, 2550], [6000, 2650], [6050, 2850], [5950, 3000],
+            [5700, 3050], [5450, 3000], [5350, 2800], [5400, 2600]
+          ]
+        }
+      ];
+      
+      // 大陸の詳細描画
+      continentData.forEach(continent => {
         ctx.save();
-        ctx.shadowColor = shadowColor;
-        ctx.shadowBlur = 3;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
         
-        ctx.fillStyle = color;
-        ctx.strokeStyle = '#1a4d3a';
-        ctx.lineWidth = 1.5;
+        // 影効果
+        ctx.shadowColor = continent.shadowColor;
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 4;
+        ctx.shadowOffsetY = 4;
+        
+        // 大陸の基本色
+        ctx.fillStyle = continent.color;
+        ctx.strokeStyle = '#1a3d0f';
+        ctx.lineWidth = 2;
         
         ctx.beginPath();
-        ctx.moveTo(path[0][0], path[0][1]);
-        for (let i = 1; i < path.length; i++) {
-          ctx.lineTo(path[i][0], path[i][1]);
+        ctx.moveTo(continent.points[0][0], continent.points[0][1]);
+        
+        // スムーズな曲線で描画
+        for (let i = 1; i < continent.points.length; i++) {
+          const current = continent.points[i];
+          const next = continent.points[(i + 1) % continent.points.length];
+          const controlX = (current[0] + next[0]) / 2;
+          const controlY = (current[1] + next[1]) / 2;
+          ctx.quadraticCurveTo(current[0], current[1], controlX, controlY);
         }
+        
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
+        
+        // 地形の詳細（山脈、平野など）
+        ctx.globalAlpha = 0.4;
+        
+        // 山岳地帯
+        if (continent.name === 'Eurasia') {
+          // ヒマラヤ山脈
+          ctx.fillStyle = '#8FBC8F';
+          for (let i = 0; i < 50; i++) {
+            const x = 4400 + Math.random() * 800;
+            const y = 1000 + Math.random() * 300;
+            const radius = Math.random() * 25 + 15;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+        }
+        
+        // アンデス山脈
+        if (continent.name === 'South America') {
+          ctx.fillStyle = '#A0C8A0';
+          for (let i = 0; i < 60; i++) {
+            const x = 1900 + Math.random() * 100;
+            const y = 1800 + i * 25 + Math.random() * 40;
+            const radius = Math.random() * 20 + 10;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+        }
+        
+        ctx.globalAlpha = 1;
         ctx.restore();
-      };
+      });
       
-      // アフリカ大陸 - より詳細な形状
-      drawContinent([
-        [850, 200], [900, 180], [950, 200], [980, 250],
-        [1000, 300], [1020, 400], [1000, 500], [980, 600],
-        [950, 700], [900, 750], [850, 720], [800, 650],
-        [780, 550], [800, 450], [820, 350], [840, 250]
-      ], '#2d5a2d', '#1a3d1a');
+      // 氷河と雪（北極・南極）
+      ctx.fillStyle = 'rgba(240, 248, 255, 0.9)';
       
-      // ヨーロッパ
-      drawContinent([
-        [820, 150], [880, 140], [920, 160], [940, 200],
-        [920, 240], [880, 250], [840, 240], [810, 200]
-      ], '#4a7c59', '#2d4a35');
-      
-      // アジア - 大きく詳細に
-      drawContinent([
-        [950, 140], [1300, 120], [1400, 150], [1450, 200],
-        [1480, 300], [1460, 400], [1400, 450], [1300, 480],
-        [1200, 460], [1100, 420], [1000, 380], [950, 300],
-        [940, 200]
-      ], '#3d6b3d', '#2a4a2a');
-      
-      // 北アメリカ
-      drawContinent([
-        [200, 100], [400, 80], [500, 120], [550, 200],
-        [520, 300], [480, 350], [400, 380], [300, 360],
-        [200, 320], [150, 250], [180, 180]
-      ], '#5d8a5d', '#3a5a3a');
-      
-      // 南アメリカ
-      drawContinent([
-        [450, 450], [520, 440], [560, 480], [580, 550],
-        [570, 650], [550, 750], [520, 820], [480, 850],
-        [440, 840], [410, 800], [400, 700], [420, 600],
-        [440, 500]
-      ], '#4a7a4a', '#2d4d2d');
-      
-      // オーストラリア
-      drawContinent([
-        [1350, 650], [1450, 640], [1500, 670], [1510, 720],
-        [1480, 760], [1420, 770], [1360, 750], [1340, 700]
-      ], '#6b9b6b', '#4a6a4a');
-      
-      // 山脈と地形の詳細
-      ctx.fillStyle = '#8FBC8F';
-      ctx.globalAlpha = 0.6;
-      
-      // ヒマラヤ山脈
-      for (let i = 0; i < 20; i++) {
-        const x = 1100 + Math.random() * 200;
-        const y = 250 + Math.random() * 100;
-        const radius = Math.random() * 15 + 8;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, 2 * Math.PI);
-        ctx.fill();
-      }
-      
-      // アンデス山脈
-      for (let i = 0; i < 30; i++) {
-        const x = 480 + Math.random() * 40;
-        const y = 450 + i * 15 + Math.random() * 20;
-        const radius = Math.random() * 12 + 6;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, 2 * Math.PI);
-        ctx.fill();
-      }
-      
-      ctx.globalAlpha = 1;
-      
-      // 緊張効果と雲の模様
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-      for (let i = 0; i < 100; i++) {
+      // 北極
+      for (let i = 0; i < 200; i++) {
         const x = Math.random() * canvas.width;
-        const y = Math.random() * canvas.height;
+        const y = Math.random() * 200;
         const radius = Math.random() * 30 + 10;
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, 2 * Math.PI);
         ctx.fill();
       }
       
-      return new THREE.CanvasTexture(canvas);
-    };
-    
-    // 法線マップの作成（立体感を向上）
-    const createNormalMap = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 2048;
-      canvas.height = 1024;
-      const ctx = canvas.getContext('2d')!;
-      
-      // 基準となる青色
-      ctx.fillStyle = '#8080ff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // 山岳地帯の法線
-      ctx.fillStyle = '#a0a0ff';
+      // 南極
       for (let i = 0; i < 200; i++) {
         const x = Math.random() * canvas.width;
-        const y = Math.random() * canvas.height;
-        const radius = Math.random() * 20 + 5;
+        const y = canvas.height - 200 + Math.random() * 200;
+        const radius = Math.random() * 40 + 15;
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, 2 * Math.PI);
         ctx.fill();
       }
       
+      // 海流の表現
+      ctx.strokeStyle = 'rgba(100, 149, 200, 0.3)';
+      ctx.lineWidth = 8;
+      ctx.lineCap = 'round';
+      
+      for (let i = 0; i < 20; i++) {
+        ctx.beginPath();
+        const startX = Math.random() * canvas.width;
+        const startY = Math.random() * canvas.height;
+        ctx.moveTo(startX, startY);
+        
+        for (let j = 0; j < 10; j++) {
+          const x = startX + j * 200 + Math.sin(j * 0.5) * 100;
+          const y = startY + Math.sin(j * 0.3) * 50;
+          ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      
       return new THREE.CanvasTexture(canvas);
     };
     
-    // 高解像度地球の作成
-    const geometry = new THREE.SphereGeometry(1, 128, 64); // セグメント数を大幅増加
+    // 高品質法線マップの作成
+    const createDetailedNormalMap = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 4096;
+      canvas.height = 2048;
+      const ctx = canvas.getContext('2d')!;
+      
+      // 基準色（平坦な海面）
+      ctx.fillStyle = '#8080ff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // 大陸の高度による法線変化
+      const continents = [
+        // アフリカ - エチオピア高原
+        { x: 1700, y: 500, width: 400, height: 300, elevation: '#b0b0ff' },
+        // ヒマラヤ山脈
+        { x: 2200, y: 400, width: 600, height: 200, elevation: '#f0f0ff' },
+        // アンデス山脈
+        { x: 900, y: 900, width: 100, height: 800, elevation: '#d0d0ff' },
+        // ロッキー山脈
+        { x: 400, y: 300, width: 200, height: 400, elevation: '#c0c0ff' },
+        // アルプス山脈
+        { x: 1640, y: 350, width: 150, height: 100, elevation: '#e0e0ff' }
+      ];
+      
+      continents.forEach(mountain => {
+        // 山脈の基本形状
+        const gradient = ctx.createRadialGradient(
+          mountain.x + mountain.width/2, mountain.y + mountain.height/2, 0,
+          mountain.x + mountain.width/2, mountain.y + mountain.height/2, 
+          Math.max(mountain.width, mountain.height)
+        );
+        gradient.addColorStop(0, mountain.elevation);
+        gradient.addColorStop(0.7, '#9090ff');
+        gradient.addColorStop(1, '#8080ff');
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(mountain.x, mountain.y, mountain.width, mountain.height);
+        
+        // 山脈の詳細な起伏
+        ctx.fillStyle = mountain.elevation;
+        for (let i = 0; i < 100; i++) {
+          const x = mountain.x + Math.random() * mountain.width;
+          const y = mountain.y + Math.random() * mountain.height;
+          const radius = Math.random() * 15 + 5;
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      });
+      
+      // 海底の起伏
+      ctx.fillStyle = '#7070ff';
+      for (let i = 0; i < 500; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const radius = Math.random() * 30 + 10;
+        ctx.globalAlpha = 0.3;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      
+      return new THREE.CanvasTexture(canvas);
+    };
     
-    const earthTexture = createEarthTexture();
+    // 高度マップの作成（displacement mapping用）
+    const createHeightMap = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 2048;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d')!;
+      
+      // 基準高度（海面）
+      ctx.fillStyle = '#404040';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // 山脈の高度データ
+      const mountainRanges = [
+        // エベレスト周辺
+        { x: 1100, y: 200, radius: 80, height: '#ffffff' },
+        // アンデス山脈
+        { x: 450, y: 450, radius: 50, height: '#e0e0e0' },
+        // アルプス
+        { x: 820, y: 175, radius: 40, height: '#d0d0d0' },
+        // ロッキー山脈
+        { x: 200, y: 150, radius: 60, height: '#c0c0c0' }
+      ];
+      
+      mountainRanges.forEach(peak => {
+        const gradient = ctx.createRadialGradient(
+          peak.x, peak.y, 0,
+          peak.x, peak.y, peak.radius
+        );
+        gradient.addColorStop(0, peak.height);
+        gradient.addColorStop(1, '#404040');
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(peak.x, peak.y, peak.radius, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+      
+      return new THREE.CanvasTexture(canvas);
+    };
+    
+    // 超高解像度地球の作成
+    const geometry = new THREE.SphereGeometry(1, 256, 128); // さらに高解像度
+    
+    const earthTexture = createRealisticEarthTexture();
     earthTexture.wrapS = THREE.RepeatWrapping;
     earthTexture.wrapT = THREE.RepeatWrapping;
+    earthTexture.generateMipmaps = true;
+    earthTexture.minFilter = THREE.LinearMipmapLinearFilter;
+    earthTexture.magFilter = THREE.LinearFilter;
     
-    const normalMap = createNormalMap();
+    const normalMap = createDetailedNormalMap();
     normalMap.wrapS = THREE.RepeatWrapping;
     normalMap.wrapT = THREE.RepeatWrapping;
     
-    const material = new THREE.MeshPhongMaterial({
+    const heightMap = createHeightMap();
+    heightMap.wrapS = THREE.RepeatWrapping;
+    heightMap.wrapT = THREE.RepeatWrapping;
+    
+    // 最高品質のマテリアル
+    const material = new THREE.MeshStandardMaterial({
       map: earthTexture,
       normalMap: normalMap,
-      normalScale: new THREE.Vector2(0.3, 0.3),
-      shininess: 10,
-      specular: new THREE.Color(0x333333),
+      normalScale: new THREE.Vector2(0.5, 0.5),
+      displacementMap: heightMap,
+      displacementScale: 0.02,
+      roughness: 0.8,
+      metalness: 0.1,
+      envMapIntensity: 0.5,
       transparent: false
     });
     
     const globe = new THREE.Mesh(geometry, material);
+    
+    // 地球の自転軸の傾斜（23.5度）を追加
+    globe.rotation.z = THREE.MathUtils.degToRad(23.5);
+    
+    // 影を受けるように設定
+    globe.receiveShadow = true;
+    globe.castShadow = true;
+    
     globeRef.current = globe;
     scene.add(globe);
     
@@ -545,12 +724,16 @@ export const Globe3D = ({
     });
     
     const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+    
+    // 雲レイヤーも地球と同じ傾斜
+    clouds.rotation.z = THREE.MathUtils.degToRad(23.5);
+    
     scene.add(clouds);
     
     // 雲の回転アニメーション
     let cloudRotation = 0;
     const animateClouds = () => {
-      cloudRotation += 0.001;
+      cloudRotation += 0.0008; // 地球より少し遅く回転
       clouds.rotation.y = cloudRotation;
     };
 
@@ -559,32 +742,52 @@ export const Globe3D = ({
     markersRef.current = markers;
     scene.add(markers);
 
-    // 高品質ライティングシステム
-    // 環境光 - 全体的な明るさ
-    const ambientLight = new THREE.AmbientLight(0x404080, 0.4);
-    scene.add(ambientLight);
+    // NASA級ライティングシステム
+    // 宇宙空間の微弱な環境光
+    const spaceAmbient = new THREE.AmbientLight(0x1a1a2e, 0.15);
+    scene.add(spaceAmbient);
     
-    // メインの太陽光
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    sunLight.position.set(2, 1, 1);
+    // 太陽光（現実的な位置と強度）
+    const sunLight = new THREE.DirectionalLight(0xfff8dc, 2.5);
+    sunLight.position.set(5, 2, 3);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.mapSize.width = 4096;
+    sunLight.shadow.mapSize.height = 4096;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 50;
+    sunLight.shadow.camera.left = -5;
+    sunLight.shadow.camera.right = 5;
+    sunLight.shadow.camera.top = 5;
+    sunLight.shadow.camera.bottom = -5;
+    sunLight.shadow.bias = -0.0001;
     scene.add(sunLight);
     
-    // リムライト（縁取り光）
-    const rimLight = new THREE.DirectionalLight(0x8eb7e8, 0.6);
-    rimLight.position.set(-1, 0.5, -1);
-    scene.add(rimLight);
+    // 地球の反射光（大気散乱を模擬）
+    const earthReflection = new THREE.DirectionalLight(0x4a90e2, 0.3);
+    earthReflection.position.set(-2, -1, -1);
+    scene.add(earthReflection);
     
-    // 点光源（宇宙からの反射光を模擬）
-    const pointLight = new THREE.PointLight(0x4a90e2, 0.8, 100);
-    pointLight.position.set(0, 0, 3);
-    scene.add(pointLight);
+    // 月明かり（微弱な青い光）
+    const moonLight = new THREE.DirectionalLight(0x9bb5ff, 0.1);
+    moonLight.position.set(-3, 1, -2);
+    scene.add(moonLight);
     
-    // ヘミスフェアライト（空と地面の色を模擬）
-    const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x2f4f4f, 0.5);
-    scene.add(hemiLight);
+    // 星の光の集合（ヘミスフェアライト）
+    const starlight = new THREE.HemisphereLight(0x0c1445, 0x000000, 0.05);
+    scene.add(starlight);
+    
+    // 環境マッピング用のキューブマップ作成
+    const createSpaceEnvironment = () => {
+      const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(512);
+      const cubeCamera = new THREE.CubeCamera(0.1, 1000, cubeRenderTarget);
+      scene.add(cubeCamera);
+      
+      return cubeRenderTarget.texture;
+    };
+    
+    const envMap = createSpaceEnvironment();
+    material.envMap = envMap;
+    material.envMapIntensity = 0.3;
 
     // レイキャスターとマウス位置の初期化
     raycasterRef.current = new THREE.Raycaster();
